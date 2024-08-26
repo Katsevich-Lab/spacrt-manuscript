@@ -1,0 +1,2 @@
+Suggests:
+  devtools
