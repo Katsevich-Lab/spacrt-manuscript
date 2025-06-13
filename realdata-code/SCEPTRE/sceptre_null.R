@@ -10,7 +10,7 @@ output_dir <- args[2]
 
 # set the intermediate data directory
 intermediate_data_dir <- paste0(.get_config_path("LOCAL_SPACRT_DATA_DIR"), 
-                                "private/results/full_data/intermediate_data")
+                                "full_data/intermediate_data")
 
 
 # null simulation

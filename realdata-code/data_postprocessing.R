@@ -1,4 +1,4 @@
-# This is a Rscript postprocessing the simulation results 
+# This is a Rscript postprocessing the simulation results
 library(sceptre)
 library(reshape2)
 library(dplyr)
@@ -13,17 +13,17 @@ minimum_cutoff <- as.numeric(args[1])
 
 # set directory
 data_dir <- paste0(
-  .get_config_path("LOCAL_SPACRT_DATA_DIR"), 
-  "private/results/full_data"
+  .get_config_path("LOCAL_SPACRT_DATA_DIR"),
+  "full_data"
 )
 
-intermediate_data_dir <- paste0(.get_config_path("LOCAL_SPACRT_DATA_DIR"), 
-                                "private/results/full_data/intermediate_data")
+intermediate_data_dir <- paste0(.get_config_path("LOCAL_SPACRT_DATA_DIR"),
+                                "full_data/intermediate_data")
 
 # check the result directory exists or not; if not, create one.
 result_dir <- paste0(
-  .get_config_path("LOCAL_SPACRT_DATA_DIR"), 
-  "private/results/full_data/summary"
+  .get_config_path("LOCAL_SPACRT_DATA_DIR"),
+  "full_data/summary"
 )
 if (!dir.exists(result_dir)) {
   dir.create(result_dir)
@@ -39,7 +39,7 @@ dispersion_list <- readRDS(sprintf("%s/dispersion_list_glm_nb.rds", data_dir))
 ################################################################################
 
 # read the negative control list
-negative_control_list <- readRDS(sprintf("%s/negative_control_pairs.rds", 
+negative_control_list <- readRDS(sprintf("%s/negative_control_pairs.rds",
                                          intermediate_data_dir))
 
 # get lists of NT gRNA groups
@@ -63,22 +63,22 @@ pvalue_matrix_right <- pvalue_matrix_left
 
 # loop over grna groups and gene list
 for (name_RNA in grna_groups) {
-  GCM_result <- readRDS(sprintf("%s/GCM/%s/output.rds", 
+  GCM_result <- readRDS(sprintf("%s/GCM/%s/output.rds",
                                 data_dir,
                                 name_RNA))
-  spaCRT_result <- readRDS(sprintf("%s/spaCRT/%s/output.rds", 
+  spaCRT_result <- readRDS(sprintf("%s/spaCRT/%s/output.rds",
                                    data_dir,
                                    name_RNA))
-  score_result <- readRDS(sprintf("%s/scoreglmnb/%s/output.rds", 
+  score_result <- readRDS(sprintf("%s/scoreglmnb/%s/output.rds",
                                   data_dir,
                                   name_RNA))
-  
+
   for (name_gene in gene_list) {
     # store the left-side p-value
     pvalue_matrix_left[methods, name_RNA, name_gene] <- c(unname(GCM_result[name_gene, "left"]),
                                                           unname(spaCRT_result[name_gene, "left"]),
                                                           unname(score_result[name_gene, "left"]))
-    
+
     # store the right-side p-value
     pvalue_matrix_right[methods, name_RNA, name_gene] <- c(unname(GCM_result[name_gene, "right"]),
                                                            unname(spaCRT_result[name_gene, "right"]),
@@ -86,13 +86,13 @@ for (name_RNA in grna_groups) {
   }
 }
 
-# load the sceptre result 
-sceptre_result_left <- readRDS(sprintf("%s/sceptre/sceptre_result_left_update_discovery.rds", 
+# load the sceptre result
+sceptre_result_left <- readRDS(sprintf("%s/sceptre/sceptre_result_left_update_discovery.rds",
                                        data_dir))
-sceptre_result_right <- readRDS(sprintf("%s/sceptre/sceptre_result_right_update_discovery.rds", 
+sceptre_result_right <- readRDS(sprintf("%s/sceptre/sceptre_result_right_update_discovery.rds",
                                         data_dir))
 
-# melt the array 
+# melt the array
 p_value_left <- reshape2::melt(pvalue_matrix_left)
 p_value_right <- reshape2::melt(pvalue_matrix_right)
 
@@ -105,7 +105,7 @@ p_value <- p_value_left |>
     .cols = p_value_left:p_value_right,
     .fns = function(x) (pmax(x, .Machine$double.eps))
   )) |>
-  pivot_wider(names_from = method, 
+  pivot_wider(names_from = method,
               values_from = c(p_value_left, p_value_right))
 
 # load the dispersion parameter and build the dispersion group
@@ -115,7 +115,7 @@ colnames(dispersion_mat) <- c("dispersion", "response_id")
 # filter sceptre result according to n_nonzero_cntrl_thresh
 filter_sceptre <- sceptre_result_left |>
   dplyr::left_join(sceptre_result_right |>
-                     dplyr::select("response_id", "grna_target", "p_value"), 
+                     dplyr::select("response_id", "grna_target", "p_value"),
                    by= c("response_id", "grna_target"),
                    suffix = c("_left", "_right")) |>
   left_join(data.frame(dispersion_mat), by = "response_id") |>
@@ -133,16 +133,16 @@ combined_result <- filter_sceptre |>
        variable.name = "method",
        id.vars = c("gRNA", "gene","dispersion", "n_nonzero_trt")) |>
   group_by(method) |>
-  mutate(side = dplyr::if_else(length(grep("left", method)) == 0, 
+  mutate(side = dplyr::if_else(length(grep("left", method)) == 0,
                                "right-sided", "left-sided")) |>
   ungroup() |>
   dplyr::mutate(method = as.factor(sapply(strsplit(as.character(method), "_"),
-                                          function(x) tail(x, 1)))) |> 
+                                          function(x) tail(x, 1)))) |>
   dplyr::mutate(method = dplyr::if_else(method == "scoreglmnb", "score", method)) |>
   dplyr::mutate(method = factor(method, levels = c("GCM", "score", "spaCRT", "sceptre")))
 
-# save the result 
-saveRDS(combined_result, 
+# save the result
+saveRDS(combined_result,
         sprintf("%s/combined_result_null.rds", result_dir))
 
 # data postprocessing for power simulation
@@ -153,52 +153,52 @@ grouping_list <- c("grouped", "individual")
 
 # loop over grouping list
 for (grouping_type in grouping_list) {
-  
+
   # load the results
-  pvalue_power_left <- readRDS(sprintf("%s/power_three_methods/pvalue_power_%s_left.rds", 
+  pvalue_power_left <- readRDS(sprintf("%s/power_three_methods/pvalue_power_%s_left.rds",
                                        data_dir, grouping_type))
-  sceptre_result_left_update_power <- readRDS(sprintf("%s/sceptre/sceptre_result_left_%s_update_power.rds", 
+  sceptre_result_left_update_power <- readRDS(sprintf("%s/sceptre/sceptre_result_left_%s_update_power.rds",
                                                       data_dir, grouping_type))
-  
+
   if(grouping_type == "grouped"){
-    
+
     # combine the sceptre and the other three methods
-    combined_result <- pvalue_power_left |> as.data.frame() |> 
-      tibble::rownames_to_column(var = "grna_target") |> 
-      as_tibble() |> 
-      dplyr::left_join(sceptre_result_left_update_power |> 
-                         dplyr::select(grna_target, n_nonzero_trt, sceptre = p_value), 
+    combined_result <- pvalue_power_left |> as.data.frame() |>
+      tibble::rownames_to_column(var = "grna_target") |>
+      as_tibble() |>
+      dplyr::left_join(sceptre_result_left_update_power |>
+                         dplyr::select(grna_target, n_nonzero_trt, sceptre = p_value),
                        by = "grna_target") |>
       tidyr::pivot_longer(cols = c("GCM", "spaCRT", "sceptre", "scoreglmnb"),
                           values_to = "p_value",
                           names_to = "method") |>
       dplyr::mutate(method = dplyr::if_else(method == "scoreglmnb", "score", method))
   }else{
-    
+
     # combine the sceptre and the other three methods
-    combined_result <- pvalue_power_left |> as.data.frame() |> 
-      tibble::rownames_to_column(var = "grna_gene") |> 
-      as_tibble() |> 
-      dplyr::left_join(sceptre_result_left_update_power |> 
+    combined_result <- pvalue_power_left |> as.data.frame() |>
+      tibble::rownames_to_column(var = "grna_gene") |>
+      as_tibble() |>
+      dplyr::left_join(sceptre_result_left_update_power |>
                          dplyr::mutate(grna_gene = sprintf("%s_%s", grna_id, grna_target)) |>
-                         dplyr::select(grna_gene, n_nonzero_trt, sceptre = p_value), 
+                         dplyr::select(grna_gene, n_nonzero_trt, sceptre = p_value),
                        by = "grna_gene") |>
       tidyr::pivot_longer(cols = c("GCM", "spaCRT", "sceptre", "scoreglmnb"),
                           values_to = "p_value",
                           names_to = "method") |>
       dplyr::mutate(method = dplyr::if_else(method == "scoreglmnb", "score", method))
   }
-  
+
   # fill the 0 as machine precision value
   combined_result[combined_result == 0] <- .Machine$double.eps
-  
+
   # rearrange the order for methods
-  combined_result$method <- factor(combined_result$method, 
-                                   levels = c("GCM", "score", 
+  combined_result$method <- factor(combined_result$method,
+                                   levels = c("GCM", "score",
                                               "spaCRT", "sceptre"))
-  
+
   # save combined_result
   saveRDS(combined_result,
-          sprintf("%s/combined_result_power_%s", result_dir, grouping_type))
+          sprintf("%s/combined_result_power_%s.rds", result_dir, grouping_type))
 }
 

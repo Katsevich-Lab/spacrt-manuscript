@@ -1,100 +1,68 @@
+# The conditional saddlepoint approximation for fast and accurate large-scale hypothesis testing
 
-# Computationally efficient and statistically accurate conditional independence testing with spaCRT
+This repository reproduces the results reported in the following paper:
 
-This repository reproduces the results reported in arXiv version 2 the
-following paper:
+Z. Niu, J. Ray Choudhury, E. Katsevich. "The conditional saddlepoint approximation for fast and accurate large-scale hypothesis testing."
+([arXiv v2](https://arxiv.org/abs/2407.08911v2))
 
-Z. Niu, J. Ray Choudhury, E. Katsevich. “Computationally efficient and
-statistically accurate conditional independence testing with spaCRT.”
-([arXiv](https://arxiv.org/pdf/2407.08911))
+There are two options for reproducing results: [plotting from downloaded results](#option-1-quick-figures-from-downloaded-results) or [complete reanalysis](#option-2-complete-rerun-all-analyses).
 
-# Get started
+## Option 1 (quick): Figures from Downloaded Results
 
-First, clone the `spacrt-manuscript` repository onto your machine.
+**Requirements:** Laptop or desktop with R installed and a Unix-like OS (e.g. MacOS or Windows WSL2). Package dependencies are automatically installed by the scripts via `renv`.
 
-    git clone git@github.com:Katsevich-Lab/spacrt-manuscript.git
+### Steps
 
-One can choose to either run the simulation or real data analysis and
-obtain the figures, or directly download the results from Dropbox and
-use our plotting code to reproduce the figures. We will present these
-two routes separately.
+1. **Clone repository**
+   ```bash
+   git clone git@github.com:Katsevich-Lab/spacrt-manuscript.git
+   cd spacrt-manuscript
+   ```
 
-# Download results data and create the figures
+2. **Download results** from [Dropbox](https://www.dropbox.com/scl/fo/02r52y06g7p6h378ojsuk/AMPvwTqGBHWxnaZqqZfel9I?rlkey=9ta49vbw966rfljng3e2p261x&st=s2xjfxf4&dl=0).
 
-The data are stored in .rds format. Download the simulation results and
-real data results from: [Dropbox simulation results
-repository](https://www.dropbox.com/scl/fo/9f4762h4m5uyk5yqzmfg0/APfgWvyjGqaFPQF50TjRnEk?rlkey=u9239c7649y3iifzlacl7c0uy&dl=0)
-and [Dropbox real data results
-repository](https://www.dropbox.com/scl/fo/0c65ld2wi580828n6vfuz/AAdiZm4wBzRQ4fagb7DuaMY?rlkey=h1shu4eywp2zfa3j5i0pe9qu2&dl=0),
-respectively. The following command could be used for reproducing the
-plots for simulation and real data analysis respectively.
+3. **Configure paths**
+   ```bash
+   echo 'LOCAL_SPACRT_DATA_DIR="/path/to/downloaded/results"' > ~/.research_config
+   ```
 
-## Create the figures for real data analysis
+4. **Generate figures and tables**
+   ```bash
+   ./run_all_simulation.sh plot-only
+   ./run_all_realdata.sh plot-only
+   ```
 
-One needs to change the `data_dir` in `realdata-code/plotting-code.R` to
-the right directory where the downloaded results are. The value for
-`max_cutoff` should be chosen to 100.
+Figures and tables will be saved to `manuscript/figures-and-tables/`.
 
-    Rscript realdata-code/plotting-code.R $max_cutoff
+## Option 2 (Complete): Rerun All Analyses
 
-## Create the figures for simulation results
+**Requirements:** HPC cluster with SGE job scheduler with R installed. Package dependencies are automatically installed by the scripts via `renv`.
 
-One could use the following code for reproducing the plots for
-simulation results. Note the `path_rds` variable in these Rscripts
-should be the path to the downloaded simulation results.
 
-    Rscript -e 'source("simulation-code/plotting-code/assemble-plots-NB-disp-5e-2.R")'
-    Rscript -e 'source("simulation-code/plotting-code/assemble-plots-NB-disp-1.R")'
-    Rscript -e 'source("simulation-code/plotting-code/assemble-plots-NB-disp-10.R")'
+### Steps
 
-If you would like to rerun the simulations from scratch, do not download
-the results and instead follow the steps in the next section.
+1. **Clone repository**
+   ```bash
+   git clone git@github.com:Katsevich-Lab/spacrt-manuscript.git
+   cd spacrt-manuscript
+   ```
 
-# Reproduce the results and figures for simulation and real data analysis
+2. **[Install](https://www.nextflow.io/docs/latest/getstarted.html#installation) and [configure](https://www.nextflow.io/docs/latest/config.html) Nextflow for your cluster**
 
-One needs to first download the `spacrt` package from
-[Katsevich-lab](https://github.com/Katsevich-Lab/spacrt) using the
-following R code.
+3. **Download Gasperini dataset** from [Dropbox](https://www.dropbox.com/scl/fo/sc7c5ezm45piaicyi08ia/AImzh7IgxoyzS68JAx8HOLA?rlkey=avts6iadwq9zdhmy8t2kyjb0v&st=cw8cdsj6&dl=0). These data were obtained from the [published data](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE120861) using [this pipeline](https://github.com/Katsevich-Lab/import-gasperini-2019-v2).
 
-    library(devtools)
-    install_github("katsevich-lab/spacrt")
+4. **Configure paths**
+   ```bash
+   echo 'LOCAL_SPACRT_DATA_DIR="/path/for/output/results"' > ~/.research_config
+   echo 'LOCAL_GASPERINI_2019_V2_DATA_DIR="/path/to/gasperini/data"' >> ~/.research_config
+   ```
 
-We used a config file to increase the portability of our code across
-machines. Create a config file called `.research_config` in your home
-directory.
+5. **Run complete analysis**
+   ```bash
+   qsub run_all_simulation.sh
+   qsub run_all_realdata.sh
+   ```
 
-    cd
-    touch ~/.research_config
+Results will be saved to `/path/for/output/results`; figures and tables will be saved to `manuscript/figures-and-tables/`.
 
-Define the following variable within this file:
-
-- `LOCAL_SPACRT_DATA_DIR`: the location of the directory in which to
-  store results.
-
-The contents of the `.research_config` file should look like something
-along the following lines.
-
-    LOCAL_INTERNAL_DATA_DIR="/Users/ziangniu/Documents/Projects/HPCC/data/projects/"
-    LOCAL_SPACRT_DATA_DIR=$LOCAL_INTERNAL_DATA_DIR"spacrt/"
-
-Navigate to the spacrt-manuscript directory. All scripts below must be
-executed from this directory. Figures will be automatically created if
-one uses the following code to reproduce the results.
-
-## Run simulation and create figures
-
-Also, for the commands below, depending on the limits of your cluster,
-you may need to set the max_gb and max_hours parameters differently. The
-choice in `run_all_simulation.sh` is 16 and 4, respectively.
-
-    qsub run_all_simulation.sh
-
-## Run real data analysis and create figures
-
-One can use the following command to reproduce the real data analysis
-results.
-
-    qsub run_all_realdata.sh
-
-Table 3 in the paper can be created using
-`realdata-code/sparsity_dataset.R`.
+</details>

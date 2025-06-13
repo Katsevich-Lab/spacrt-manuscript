@@ -13,12 +13,12 @@ min_gRNA_count <- as.numeric(args[1])
 num_subsampled_gene <- as.numeric(args[2])
 
 # Specify the output file path
-output_dir <- sprintf("%s/private/results/full_data",
+output_dir <- sprintf("%s/full_data",
                       .get_config_path("LOCAL_SPACRT_DATA_DIR"))
 
 # set the intermediate data directory
 intermediate_data_dir <- paste0(.get_config_path("LOCAL_SPACRT_DATA_DIR"),
-                                "private/results/full_data/intermediate_data")
+                                "full_data/intermediate_data")
 
 # get RNA, gene and covariate dataframes
 subsetted_ODM <- readRDS(sprintf("%s/subsetted_ODM.rds",
@@ -76,29 +76,34 @@ for (grna_group in grna_group_list) {
     # List the data
     data <- list(
       Y = gene_expression,
-      X = grna_presences,
+      X = as.numeric(grna_presences),
       Z = transform_covariate
     )
 
     # store the computation time
     output[gene, grna_group, "GCM"] <- system.time(
-      GCM(data = data, X_on_Z_fam = "binomial",
-          Y_on_Z_fam = "negative.binomial")
+      spacrtutils::GCM_internal(data = data,
+                                X_on_Z_fam = "binomial",
+                                Y_on_Z_fam = "negative.binomial")
     )[["elapsed"]]
 
     output[gene, grna_group, "spaCRT"] <- system.time(
-      spaCRT(data = data, X_on_Z_fam = "binomial",
-             Y_on_Z_fam = "negative.binomial")
+      spacrtutils::spaCRT_internal(data = data,
+                                   X_on_Z_fam = "binomial",
+                                   Y_on_Z_fam = "negative.binomial")
     )[["elapsed"]]
 
     output[gene, grna_group, "score"] <- system.time(
-      score.test(data = data, X_on_Z_fam = "binomial",
-                 Y_on_Z_fam = "negative.binomial")
+      spacrtutils::score.test(data = data,
+                              X_on_Z_fam = "binomial",
+                              Y_on_Z_fam = "negative.binomial")
     )[["elapsed"]]
 
     output[gene, grna_group, "dCRT"] <- system.time(
-      dCRT(data, X_on_Z_fam = "binomial",
-           Y_on_Z_fam = "negative.binomial", B = 1e5)
+      spacrtutils::dCRT_internal(data,
+                                 X_on_Z_fam = "binomial",
+                                 Y_on_Z_fam = "negative.binomial",
+                                 B = 1e5)
     )[["elapsed"]]
   }
 }

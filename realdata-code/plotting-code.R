@@ -10,6 +10,7 @@ library(katlabutils)
 library(patchwork)
 library(tidyr)
 library(tibble)
+library(kableExtra)
 
 # Read the command-line arguments
 args <- commandArgs(trailingOnly = TRUE)
@@ -18,7 +19,7 @@ args <- commandArgs(trailingOnly = TRUE)
 max_cutoff <- as.numeric(args[1])
 
 # plots directory
-plots_dir <- "manuscript/figures-and-tables"
+plots_dir <- "manuscript/figures-and-tables//real-data"
 
 if (!dir.exists(plots_dir)) {
   dir.create(plots_dir)
@@ -30,7 +31,7 @@ if (!dir.exists(plots_dir)) {
 # set the data directory
 data_dir <- paste0(
   .get_config_path("LOCAL_SPACRT_DATA_DIR"),
-  "private/results/full_data/summary"
+  "full_data/summary"
 )
 
 
@@ -40,6 +41,13 @@ data_dir <- paste0(
 # load the result
 combined_result_null <- readRDS(sprintf("%s/combined_result_null.rds",
                                         data_dir))
+
+# compute the rate of GCM default values
+combined_result_null |> dplyr::filter(method %in% c("GCM", "spaCRT")) |>
+  tidyr::pivot_wider(names_from = method, values_from = `p-value`, id_cols = c("gRNA", "gene", "side")) |>
+  dplyr::mutate(GCM_default = ifelse(spaCRT == GCM, TRUE, FALSE)) |>
+  dplyr::summarise(GCM_default_rate = mean(GCM_default)) |>
+  dplyr::pull()
 
 # overall calibration plot; this code is for plotting Figure 4
 condensed_no_stratification <- combined_result_null |>
@@ -56,26 +64,38 @@ condensed_no_stratification <- combined_result_null |>
   facet_wrap(~method) +
   guides(color = guide_legend(position = "inside",
                               override.aes = list(size = 1))) +
-  labs(x = "Observed p-value",
-       y = "Expected p-value") +
+  labs(y = "Observed p-value",
+       x = "Expected p-value") +
   theme_bw() +
-  theme(legend.position.inside = c(0.125,0.9),
+  theme(legend.position.inside = c(0.15,0.9),
+        legend.background = element_blank(),
         legend.title = element_blank(),
         panel.spacing = unit(0.75, "lines"),
         plot.margin = margin(0.1, 0.5, 0.1, 0.1, "cm"),
         legend.margin = margin(0, 0, 0, 0),
         legend.box.margin = margin(0.5, 0.5, 0.5, 0.5),
-        legend.text = element_text(margin = margin(l = 0)))
-
-# save the plot
-ggsave(sprintf("%s/condensed-without-stratification.pdf", plots_dir),
-       plot = condensed_no_stratification,
-       height = 4.25,
-       width = 4.5)
+        legend.text = element_text(size = 14),
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 12),
+        strip.text.x = element_text(margin = margin(0.05, 0, 0.05, 0, "cm"), size = 12),
+        strip.text.y = element_text(margin = margin(0.05, 0.05, 0, 0.05, "cm"), size = 12))
 
 # non-stratified power plot; this plot is for Figure 5
-combined_result_power <- readRDS(sprintf("%s/combined_result_power_individual",
+combined_result_power <- readRDS(sprintf("%s/combined_result_power_individual.rds",
                                          data_dir))
+
+# compute the rate of failure of spaCRT
+combined_result_power |> dplyr::filter(method %in% c("GCM", "spaCRT")) |>
+  tidyr::pivot_wider(names_from = method, values_from = p_value, id_cols = c("grna_gene")) |>
+  dplyr::mutate(GCM_default = ifelse(spaCRT == GCM, TRUE, FALSE)) |>
+  dplyr::summarise(
+    GCM_default_rate = mean(GCM_default)
+  ) |>
+  dplyr::pull()
+
+# plot the p-values
 p <- combined_result_power |>
   mutate(method = factor(method,
                          levels = c("GCM", "score", "sceptre", "spaCRT"),
@@ -89,12 +109,66 @@ p <- combined_result_power |>
   theme(plot.title = element_text(hjust = 0.5),
         legend.position = "none") +
   labs(x = "Method",
-       y = "p-value")
+       y = "p-value") +
+  theme(legend.position = "none",
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 12),
+        plot.title = element_blank(),
+        strip.text.x = element_text(size = 12),
+        strip.text.y = element_text(size = 12))
 
-ggsave(sprintf("%s/power_boxplot.pdf", plots_dir),
-       p,
-       width = 4,
-       height = 4)
+######################## combine two plots #####################################
+combined_plot <- (condensed_no_stratification | p) +
+  plot_layout(ncol = 2, widths = c(1.5, 1)) +
+  plot_annotation(tag_levels = "a") +
+  theme(legend.position = "none", legend.title = element_blank())
+
+ggsave(sprintf("%s/combined_summary.pdf", plots_dir),
+       combined_plot,
+       width = 10,
+       height = 5)
+
+################################################################################
+# Table for rejection with BH and Bonferroni correction
+################################################################################
+# compute the number of discoveries
+alpha <- 0.1
+reject_df <- combined_result_null |>
+  mutate(p_value = `p-value`,
+         side = if_else(side == "left-sided", "left", "right")) |>
+  dplyr::select(method, side, p_value) |>
+  group_by(method, side) |>
+  summarise(n_reject_bonf = sum(p.adjust(p_value, method = "bonferroni") <= alpha, na.rm = TRUE),
+            n_reject_bh = sum(p.adjust(p_value, method = "BH") <= alpha, na.rm = TRUE)) |>
+  ungroup()
+
+reject_df |>
+  tidyr::pivot_wider(names_from = "side",
+                     values_from = c("n_reject_bonf", "n_reject_bh")) |>
+  mutate(method = as.character(method),
+         method = ifelse(method == "score", "Score test", method),
+         method = ifelse(method == "GCM", "GCM test", method),
+         method = ifelse(method == "sceptre", "dCRT", method),
+         method = factor(method, levels = c("GCM test", "Score test", "dCRT", "spaCRT"))) |>
+  dplyr::select(method, n_reject_bonf_left, n_reject_bh_left,
+                n_reject_bonf_right, n_reject_bh_right) |>
+  knitr::kable(
+    format = "latex",
+    row.names = NA,
+    booktabs = TRUE,
+    digits = 1,
+    caption = "Number of rejections for negative control pairs on the Gasperini data.",
+    label = "real_data_rejection",
+    col.names = NULL
+  ) |>
+  kableExtra::kable_styling(latex_options = "hold_position") |>
+  add_header_above(c("Method" = 1, "Bonferroni" = 1, "BH" = 1, "Bonferroni" = 1, "BH" = 1)) |>
+  add_header_above(c(" " = 1, "Left-sided test" = 2, "Right-sided test" = 2)) |>
+  add_header_above(c(" " = 1, "Number of rejections" = 4)) |>
+  kableExtra::save_kable(sprintf("%s/real-data-num-rejection.tex", plots_dir))
+
 
 
 ################################################################################
@@ -103,7 +177,7 @@ ggsave(sprintf("%s/power_boxplot.pdf", plots_dir),
 
 output_dir <- paste0(
   .get_config_path("LOCAL_SPACRT_DATA_DIR"),
-  "private/results/full_data/"
+  "full_data/"
 )
 timing_results <- readRDS(paste0(output_dir, "/time_comparison.rds"))
 
@@ -120,7 +194,7 @@ timing_results |>
                row.names = NA,
                booktabs = TRUE,
                digits = 1,
-               caption = "Computation time per perturbation-gene pair on the Gasperini data. Times are reported in seconds.",
+               caption = "Computation times (in seconds) per test on the Gasperini data.",
                label = "time_comparison") |>
   kableExtra::kable_styling(latex_options = "hold_position") |>
   kableExtra::save_kable(sprintf("%s/gasperini-computing-times.tex", plots_dir))
@@ -145,8 +219,8 @@ p1 <- combined_result_null |>
   scale_y_continuous(trans = revlog_trans(10),
                      breaks = c(1, 1e-2, 1e-4, 1e-6, 1e-8),
                      labels = c(expression(10^{0}), expression(10^{-2}), expression(10^{-4}), expression(10^{-6}), expression(10^{-8}))) +
-  labs(x = "Observed p-value",
-       y = "Expected p-value") +
+  labs(y = "Observed p-value",
+       x = "Expected p-value") +
   theme_bw()
 
 p2 <- timing_results |>
@@ -426,7 +500,7 @@ plot_GCM <- text_added_data |>
     keyheight = 0.15,
     default.unit = "inch",
     override.aes = list(size = 2.5))) +
-  scale_color_manual(values = pannel_cols, name = "Dispersion")
+  scale_color_manual(values = pannel_cols, name = "Size parameter")
 
 plot_score_glm_nb <- text_added_data |>
   dplyr::filter(method == "score") |>
@@ -455,7 +529,7 @@ plot_score_glm_nb <- text_added_data |>
     keyheight = 0.15,
     default.unit = "inch",
     override.aes = list(size = 2.5))) +
-  scale_color_manual(values = pannel_cols, name = "Dispersion")
+  scale_color_manual(values = pannel_cols, name = "Size parameter")
 
 plot_spaCRT <- text_added_data |>
   dplyr::filter(method == "spaCRT") |>
@@ -484,7 +558,7 @@ plot_spaCRT <- text_added_data |>
     keyheight = 0.15,
     default.unit = "inch",
     override.aes = list(size = 2.5))) +
-  scale_color_manual(values = pannel_cols, name = "Dispersion")
+  scale_color_manual(values = pannel_cols, name = "Size parameter")
 
 plot_sceptre <- text_added_data |>
   dplyr::filter(method == "sceptre") |>
@@ -513,7 +587,7 @@ plot_sceptre <- text_added_data |>
     keyheight = 0.15,
     default.unit = "inch",
     override.aes = list(size = 2.5))) +
-  scale_color_manual(values = pannel_cols, name = "Dispersion")
+  scale_color_manual(values = pannel_cols, name = "Size parameter")
 
 plot_aux <- text_added_data |>
   dplyr::filter(method == "sceptre") |>
@@ -536,7 +610,7 @@ plot_aux <- text_added_data |>
     keyheight = 0.15,
     default.unit = "inch",
     override.aes = list(size = 2.5))) +
-  scale_color_manual(values = pannel_cols, name = "Dispersion")
+  scale_color_manual(values = pannel_cols, name = "Size parameter")
 
 # get legend from plot_aux
 legend <- get_plot_component(plot_aux, 'guide-box-bottom', return_all = TRUE)

@@ -12,12 +12,12 @@ min_gRNA_count <- as.numeric(args[1])
 
 # set the intermediate data directory
 intermediate_data_dir <- paste0(.get_config_path("LOCAL_SPACRT_DATA_DIR"),
-                                "private/results/full_data/intermediate_data")
+                                "full_data/intermediate_data")
 
 # set the result path
 result_path <- paste0(
   .get_config_path("LOCAL_SPACRT_DATA_DIR"),
-  "private/results/full_data/power_three_methods"
+  "full_data/power_three_methods"
 )
 
 # create it if the directory does not exist
@@ -118,19 +118,19 @@ for (grouping_type in grouping) {
     # create the data list
     data <- list(
       Y = gene_expression,
-      X = grna_presences,
+      X = as.numeric(grna_presences),
       Z = covariate_data
     )
 
     ## Provide the auxiliary information for negative.binomial model
-    aux_info_Y_on_Z <- nb_precomp(list(Y = data$Y, Z = data$Z))
+    aux_info_Y_on_Z <- spacrt:::nb_precomp(V = data$Y, Z = data$Z)
 
     # run GCM method
     # store the computation time
     timing[hyp, "GCM"] <- system.time(
-      test_result_GCM <- GCM(data = data,
-                             X_on_Z_fam = "binomial",
-                             Y_on_Z_fam = "negative.binomial")
+      test_result_GCM <- spacrtutils::GCM_internal(data = data,
+                                                   X_on_Z_fam = "binomial",
+                                                   Y_on_Z_fam = "negative.binomial")
     )[["elapsed"]]
 
     # compute and store the p-value
@@ -140,23 +140,23 @@ for (grouping_type in grouping) {
     # run spaCRT method
     # store the computation time
     timing[hyp, "spaCRT"] <- system.time(
-      test_result_spaCRT <- spaCRT(data = data,
-                                   X_on_Z_fam = "binomial",
-                                   Y_on_Z_fam = "negative.binomial")
+      test_result_spaCRT <- spacrtutils::spaCRT_internal(data = data,
+                                                         X_on_Z_fam = "binomial",
+                                                         Y_on_Z_fam = "negative.binomial")
     )[["elapsed"]]
 
     # compute and store the p-value
     pvalue[hyp, "spaCRT"] <- test_result_spaCRT$p.left
 
     # store the default choice of GCM into dataframe
-    default_GCM[hyp] <- test_result_spaCRT$gcm.default
+    default_GCM[hyp] <- 1 - test_result_spaCRT$spa.success
 
     # run score test
     # store the computation time
     timing[hyp, "scoreglmnb"] <- system.time(
-      test_result_score <- score.test(data = data,
-                                      X_on_Z_fam = "binomial",
-                                      Y_on_Z_fam = "negative.binomial")
+      test_result_score <- spacrtutils::score.test(data = data,
+                                                   X_on_Z_fam = "binomial",
+                                                   Y_on_Z_fam = "negative.binomial")
     )[["elapsed"]]
 
     # compute and store the p-value

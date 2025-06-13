@@ -17,7 +17,7 @@ min_gRNA_count <- as.numeric(args[4])
 
 # set the intermediate data directory
 intermediate_data_dir <- paste0(.get_config_path("LOCAL_SPACRT_DATA_DIR"),
-                                "private/results/full_data/intermediate_data")
+                                "full_data/intermediate_data")
 
 # get RNA, gene and covariate dataframes
 subsetted_ODM <- readRDS(sprintf("%s/subsetted_ODM.rds",
@@ -76,12 +76,12 @@ for(gene in gene_list){
   # List the data
   data <- list(
     Y = gene_expression,
-    X = grna_presences,
+    X = as.numeric(grna_presences),
     Z = transform_covariate
   )
 
   ## Provide the auxiliary information for negative.binomial model
-  aux_info_Y_on_Z <- nb_precomp(list(Y = data$Y, Z = data$Z))
+  aux_info_Y_on_Z <- spacrt:::nb_precomp(V = data$Y, Z = data$Z)
 
   # use one of inference methods
   switch(infer_method,
@@ -89,8 +89,9 @@ for(gene in gene_list){
 
            # store the computation time
            output[gene, "time"] <- system.time(
-             test_result <- GCM(data = data, X_on_Z_fam = "binomial",
-                                Y_on_Z_fam = "negative.binomial")
+             test_result <- spacrtutils::GCM_internal(data = data,
+                                                      X_on_Z_fam = "binomial",
+                                                      Y_on_Z_fam = "negative.binomial")
            )[["elapsed"]]
 
            # compute and store the p-value
@@ -103,8 +104,9 @@ for(gene in gene_list){
 
            # store the computation time
            output[gene, "time"] <- system.time(
-             test_result <- spaCRT(data = data, X_on_Z_fam = "binomial",
-                                   Y_on_Z_fam = "negative.binomial")
+             test_result <- spacrtutils::spaCRT_internal(data = data,
+                                                         X_on_Z_fam = "binomial",
+                                                         Y_on_Z_fam = "negative.binomial")
            )[["elapsed"]]
 
            # depending on the gcm is rejected or not, we use test_stat or p-value as output
@@ -113,14 +115,15 @@ for(gene in gene_list){
                                                       test_result$p.both)
 
            # store the if GCM is performed or not
-           output[gene, ncol(output)] <- test_result$gcm.default
+           output[gene, ncol(output)] <- 1 - test_result$spa.success
          },
          scoreglmnb = {
 
            # store the computation time
            output[gene, "time"] <- system.time(
-             test_result <- score.test(data = data, X_on_Z_fam = "binomial",
-                                       Y_on_Z_fam = "negative.binomial")
+             test_result <- spacrtutils::score.test(data = data,
+                                                    X_on_Z_fam = "binomial",
+                                                    Y_on_Z_fam = "negative.binomial")
            )[["elapsed"]]
 
            # store the dispersion
@@ -139,7 +142,7 @@ for(gene in gene_list){
 # save the dispersion if it is score test
 if(infer_method == "scoreglmnb"){
   dispersion_path <- paste0(.get_config_path("LOCAL_SPACRT_DATA_DIR"),
-                            "private/results/full_data/dispersion_list_glm_nb.rds")
+                            "full_data/dispersion_list_glm_nb.rds")
   # check if there exists the rds or not; if not, create one
   if (!dir.exists(dispersion_path)) {
     # save the dispersion parameter

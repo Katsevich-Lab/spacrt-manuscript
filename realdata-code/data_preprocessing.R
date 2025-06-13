@@ -176,7 +176,7 @@ negative_control_list <- list(
 
 # create the directory
 intermediate_data_dir <- paste0(.get_config_path("LOCAL_SPACRT_DATA_DIR"),
-                                "private/results/full_data/intermediate_data")
+                                "full_data/intermediate_data")
 
 if (!dir.exists(intermediate_data_dir)) {
   dir.create(intermediate_data_dir)

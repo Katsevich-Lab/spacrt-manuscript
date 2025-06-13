@@ -9,7 +9,7 @@ min_gRNA_count=$2
 # write the gRNA list to gRNA.txt
 Rscript -e '
 intermediate_data_dir <- paste0(.get_config_path("LOCAL_SPACRT_DATA_DIR"), 
-                                "private/results/full_data/intermediate_data")
+                                "full_data/intermediate_data")
 negative_control_list <- readRDS(sprintf("%s/negative_control_pairs.rds", 
                                          intermediate_data_dir))
 grna_group <- negative_control_list$grna$grna_group |> unique()
@@ -27,7 +27,7 @@ IFS=$'\n' read -r -d '' -a RNA_list <<< "$gRNA"
 methods=("GCM" "spaCRT" "scoreglmnb")
 for method in "${methods[@]}"
 do
-    output_dir=$LOCAL_SPACRT_DATA_DIR/private/results/full_data/$method
+    output_dir=$LOCAL_SPACRT_DATA_DIR/full_data/$method
     mkdir -p $output_dir
     for RNA in "${RNA_list[@]}"
     do

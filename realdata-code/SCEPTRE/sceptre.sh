@@ -10,7 +10,7 @@ source ~/.research_config
 directory=$1
 
 # make the output directory
-output_dir=$LOCAL_SPACRT_DATA_DIR/private/results/full_data/sceptre
+output_dir=$LOCAL_SPACRT_DATA_DIR/full_data/sceptre
 mkdir -p $output_dir
 
 # 1. null simulation
@@ -30,7 +30,7 @@ do
     library(sceptre)
     # set the directory 
     intermediate_data_dir <- paste0(.get_config_path("LOCAL_SPACRT_DATA_DIR"), 
-                                    "private/results/full_data/intermediate_data")
+                                    "full_data/intermediate_data")
     # load the sceptre object 
     sceptre_object <- readRDS(sprintf("%s/sceptre_object_left_%s.rds",
                               intermediate_data_dir, 
